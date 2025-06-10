@@ -21,7 +21,8 @@ import java.nio.charset.StandardCharsets;
  * @since 2019/11/09
  */
 
-public class ProcessUtil {
+public class ProcessUtil
+{
 
     private static Logger logger = LoggerFactory.getLogger(JobThread.class);
 
@@ -33,20 +34,23 @@ public class ProcessUtil {
                 field = process.getClass().getDeclaredField("handle");
                 field.setAccessible(true);
                 pid = Kernel32.INSTANCE.GetProcessId((Long) field.get(process));
-            } catch (Exception ex) {
+            }
+            catch (Exception ex) {
                 logger.error("get process id for windows error {0}", ex);
             }
-        } else if (Platform.isLinux() || Platform.isAIX()) {
+        }
+        else if (Platform.isLinux() || Platform.isAIX()) {
             try {
-                String processImplClassName = "java.lang.UNIXProcess";
-                if( isJdk17()) {
-                    processImplClassName = "java.lang.ProcessImpl";
+                if (isJdkMoreThan9()) {
+                    return String.valueOf(process.pid());
                 }
+                String processImplClassName = "java.lang.UNIXProcess";
                 Class<?> clazz = Class.forName(processImplClassName);
                 field = clazz.getDeclaredField("pid");
                 field.setAccessible(true);
                 pid = (Integer) field.get(process);
-            } catch (Throwable e) {
+            }
+            catch (Throwable e) {
                 logger.error("get process id for unix error {0}", e);
             }
         }
@@ -68,7 +72,8 @@ public class ProcessUtil {
         boolean result;
         if (Platform.isWindows()) {
             command = "cmd.exe /c taskkill /PID " + pid + " /F /T ";
-        } else if (Platform.isLinux() || Platform.isAIX()) {
+        }
+        else if (Platform.isLinux() || Platform.isAIX()) {
             command = "kill " + pid;
         }
         try {
@@ -80,17 +85,20 @@ public class ProcessUtil {
                 JobLogger.log(line);
             }
             result = true;
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             logger.error("kill pid error {0}", e);
             result = false;
-        } finally {
+        }
+        finally {
             if (process != null) {
                 process.destroy();
             }
             if (reader != null) {
                 try {
                     reader.close();
-                } catch (IOException e) {
+                }
+                catch (IOException e) {
                     logger.error("reader close error {0}", e);
                 }
             }
@@ -98,9 +106,23 @@ public class ProcessUtil {
         return result;
     }
 
-    private static boolean isJdk17(){
+    private static boolean isJdkMoreThan9() {
         String version = System.getProperty("java.version");
-        return version != null && version.startsWith("17");
+        if (StringUtils.isEmpty(version)) {
+            return false;
+        }
+        String[] versionParts = version.split("\\.");
+        if (versionParts.length < 2) {
+            return false;
+        }
+        try {
+            int majorVersion = Integer.parseInt(versionParts[0]);
+            int minorVersion = Integer.parseInt(versionParts[1]);
+            return majorVersion > 9 || (majorVersion == 9 && minorVersion >= 0);
+        }
+        catch (NumberFormatException e) {
+            logger.error("Error parsing JDK version: {}", version, e);
+            return false;
+        }
     }
-
 }
