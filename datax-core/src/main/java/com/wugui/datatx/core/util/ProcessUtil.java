@@ -38,7 +38,11 @@ public class ProcessUtil {
             }
         } else if (Platform.isLinux() || Platform.isAIX()) {
             try {
-                Class<?> clazz = Class.forName("java.lang.UNIXProcess");
+                String processImplClassName = "java.lang.UNIXProcess";
+                if( isJdk17()) {
+                    processImplClassName = "java.lang.ProcessImpl";
+                }
+                Class<?> clazz = Class.forName(processImplClassName);
                 field = clazz.getDeclaredField("pid");
                 field.setAccessible(true);
                 pid = (Integer) field.get(process);
@@ -92,6 +96,11 @@ public class ProcessUtil {
             }
         }
         return result;
+    }
+
+    private static boolean isJdk17(){
+        String version = System.getProperty("java.version");
+        return version != null && version.startsWith("17");
     }
 
 }
